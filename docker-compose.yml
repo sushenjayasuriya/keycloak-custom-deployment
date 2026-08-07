@@ -1,0 +1,88 @@
+services:
+  postgres:
+    restart: always
+    image: "postgres:18"
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_DB: thingsboard
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d thingsboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    command: start-dev
+    ports:
+      - "8081:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: host.docker.internal
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+    volumes:
+       - keycloak-data:/opt/keycloak/data  
+       - ./custom-theme/customTheme.jar:/opt/keycloak/providers/customTheme.jar
+       - ./custom-theme/email-otp-authenticator.jar:/opt/keycloak/providers/email-otp-authenticator.jar
+       - ./custom-theme/sms-otp-authenticator.jar:/opt/keycloak/providers/sms-otp-authenticator.jar
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s  
+  thingsboard-ce:
+    restart: always
+    image: "thingsboard/tb-node:4.3.1.3"
+    ports:
+      - "8080:8080"
+      - "7070:7070"
+      - "1883:1883"
+      - "8883:8883"
+      - "5683-5688:5683-5688/udp"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    environment:
+      TB_SERVICE_ID: tb-ce-node
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/thingsboard
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # Keycloak OAuth2 Configuration
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_ID: thingsboard
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_SECRET: teZYXxeUxHXiIJuc6ej3HYlSnIGKHcBo
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI: http://host.docker.internal:8081/realms/thingsboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy 
+  custom-mapper:
+    build: .
+    container_name: tb-oauth2-mapper
+    ports:
+      - "10010:10010"
+    environment:
+      CUSTOM_MAPPER_AUTH_USERNAME: admin
+      CUSTOM_MAPPER_AUTH_PASSWORD: "{noop}password" 
+  dialog-sms-proxy:
+    build: ./dialog-sms-proxy
+    container_name: dialog-sms-proxy
+    ports:
+      - "10020:10020"
+    restart: always    
+volumes:
+  postgres-data:
+    name: tb-postgres-data
+    driver: local
+  keycloak-data:
+    name: keycloak-data
+    driver: local

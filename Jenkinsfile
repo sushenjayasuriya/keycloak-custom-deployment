@@ -45,9 +45,9 @@ pipeline {
             }
         }
     }
-    post {
+        post {
         always {
-            sh "rm -f /tmp/kc-image.tar /tmp/sms-image.tar"
+            sh "sudo rm -f /tmp/kc-image.tar /tmp/sms-image.tar || true"
         }
     }
 }

@@ -1,7 +1,7 @@
 FROM quay.io/keycloak/keycloak:26.6.4
 
 # Copy custom theme
-COPY custom-theme /opt/keycloak/themes/custom
+COPY custom-theme /opt/keycloak/themes/custom.v2
 
 # Copy the custom JARs to the providers folder
 COPY oauth2-mapper-1.0.0-boot.jar /opt/keycloak/providers/
